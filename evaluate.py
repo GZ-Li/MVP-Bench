@@ -7,7 +7,6 @@ import argparse
 from tqdm import tqdm
 
 import sys
-# sys.path.append('/home/users/nus/e0672129/scratch/VLMEvalKit')
 from vlmeval.evaluate.misc import build_judge
 from vlmeval.evaluate.vqa_eval import process_line
 from vlmeval.evaluate.coco_eval import COCO_Caption_Scorer
@@ -220,11 +219,11 @@ if __name__ == '__main__':
     parser.add_argument("--mcq_dir", default="data/mcq_questions.json", type=str)
     args = parser.parse_args()
 
-    qas = jsonline_load(args.qa_dir)
-    qas = {x['question_id']:x for x in qas}
-
     model_name = args.model_name
     OUTPUT_DIR = args.output_dir
+    qas = jsonline_load(args.qa_dir)
+    qas = {x['question_id']:x for x in qas}
+    
     predictions = jsonline_load(os.path.join(OUTPUT_DIR, f'{model_name}.jsonl'))
     eval_results = extract_predictions(predictions, model_name, judge_type='chatgpt-1106')
     accuracy, qAcc, iAcc, mAcc = calculate_overall_accuracy(eval_results)
