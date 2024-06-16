@@ -1,7 +1,9 @@
 import os
+import sys
 import json
 import codecs
 import jsonlines
+import argparse
 from tqdm import tqdm
 
 import sys
@@ -10,8 +12,8 @@ from vlmeval.evaluate.misc import build_judge
 from vlmeval.evaluate.vqa_eval import process_line
 from vlmeval.evaluate.coco_eval import COCO_Caption_Scorer
 
-os.environ['OPENAI_API_KEY'] = "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"
-os.environ['GOOGLE_API_KEY'] = 'AIzaSyCUHr41PVtRGVIfM9rkmQSCgROkx9rgh-M'
+os.environ['OPENAI_API_KEY'] = "Your_Openai_Key"
+os.environ['GOOGLE_API_KEY'] = 'Your_Google_Key'
 
 def jsonline_load(fname):
     with jsonlines.open(fname, mode='r') as reader:
@@ -116,7 +118,7 @@ def extract_predictions(predictions, model_name, judge_type='chatgpt-1106'):
         existed_ids.append(qid)    
     return eval_results
 
-def print_out_accuracy(accuracy, qAcc, iAcc, dAcc):
+def print_out_accuracy(accuracy, qAcc, iAcc, mAcc):
     for k, v in accuracy.items():
         if k == 'fb': continue 
         cnt = {}
@@ -132,7 +134,7 @@ def print_out_accuracy(accuracy, qAcc, iAcc, dAcc):
         print('## {}: {}'.format(k, sum(cntx)/len(cntx)))
     
     print('=======')
-    for t, Acc in zip(('qAcc', 'iAcc', 'dAcc'), (qAcc, iAcc, dAcc)):
+    for t, Acc in zip(('qAcc', 'iAcc', 'mAcc'), (qAcc, iAcc, mAcc)):
         print("ACC")
         if t == 'qAcc':
             low = [all(x['correct']) for x in Acc.values() if x['level'] == 'low']
@@ -148,34 +150,11 @@ def print_out_accuracy(accuracy, qAcc, iAcc, dAcc):
             all_ = [all(x) for x in Acc.values() if len(x) > 3]
             print(t, sum(all_)/len(all_), len(all_))
     
-    _v = []
-    for k, v in accuracy['fb'].items():
-        _vv = []
-        for kk, vv in v.items():
-            print(f'-------- ({kk}):')
-            ref = {i:[x[1]] for i,x in enumerate(vv)}
-            gt = {i:[x[0]] for i,x in enumerate(vv)}
-            scorer = COCO_Caption_Scorer(ref, gt)
-            coco_caption_score_dict = scorer.compute_scores()
-            _vv += vv
-        print(f'==== [{k}]:')
-        ref = {i:[x[1]] for i,x in enumerate(_vv)}
-        gt = {i:[x[0]] for i,x in enumerate(_vv)}
-        scorer = COCO_Caption_Scorer(ref, gt)
-        coco_caption_score_dict = scorer.compute_scores()
-        _v += _vv
-    
-    print(f'## ft:')
-    ref = {i:[x[1]] for i,x in enumerate(_v)}
-    gt = {i:[x[0]] for i,x in enumerate(_v)}
-    scorer = COCO_Caption_Scorer(ref, gt)
-    coco_caption_score_dict = scorer.compute_scores()
-
 def calculate_overall_accuracy(eval_results):
     accuracy = {
         'y/n': {'low': {}, 'high': {}}, 'mcq': {'low': {}, 'high': {}}, 'fb': {'low': {}, 'high': {}},
     }
-    qAcc, iAcc, dAcc = {}, {}, {}
+    qAcc, iAcc, mAcc = {}, {}, {}
     for sample in tqdm(eval_results):
         qid = sample['question_id']
         pred = sample['prediction']
@@ -193,10 +172,10 @@ def calculate_overall_accuracy(eval_results):
             accuracy['y/n'][sample['level']][sample['type']].append(is_correct)
             if (dt_id, qu) not in qAcc: qAcc[(dt_id, qu)] = {'level': sample['level'], 'correct': []}
             if img_id not in iAcc: iAcc[img_id] = []
-            if dt_id not in dAcc: dAcc[dt_id] = []
+            if dt_id not in mAcc: mAcc[dt_id] = []
             qAcc[(dt_id, qu)]['correct'].append(is_correct)
             iAcc[img_id].append(is_correct)
-            dAcc[dt_id].append(is_correct)
+            mAcc[dt_id].append(is_correct)
         elif sample['type'].startswith('mcq'):
             if sample['type'] not in accuracy['mcq'][sample['level']]:
                 accuracy['mcq'][sample['level']][sample['type']] = []
@@ -211,10 +190,10 @@ def calculate_overall_accuracy(eval_results):
             elif ' are ' in pred and ' are _' in sample['question']:
                 pred = pred.split(' are ')[-1].strip()
             accuracy['fb'][sample['level']][sample['type']].append((pred.lower(), sample['answer'].lower()))
-    return accuracy, qAcc, iAcc, dAcc
+    return accuracy, qAcc, iAcc, mAcc
 
-def evaluate_mcq(fname):
-    qas = {x['question_id']:x for x in jsonline_load('mcq_all_questions.json')}
+def evaluate_mcq(fname, mcq_qa):
+    qas = {x['question_id']:x for x in jsonline_load(mcq_qa)}
     predictions = jsonline_load(fname)
     eval_results = {'low': {'c': {}, 'e': {}}, 'high': {'c': {}, 'e': {}}}
     for prd in predictions:
@@ -235,9 +214,10 @@ if __name__ == '__main__':
     ###=== Calculate Overall Accuracy ===###
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name",default='GPT4o',type=str)
-    parser.add_argument("--input_dir", default="model_predictions", type=str)
-    parser.add_argument("--output_dir", default='model_predictions', type=str)
-    parser.add_argument("--qa_dir", default="model_predictions", type=str)
+    parser.add_argument("--input_dir", default="model_prediction", type=str)
+    parser.add_argument("--output_dir", default='model_prediction', type=str)
+    parser.add_argument("--qa_dir", default="data/all_questions.json", type=str)
+    parser.add_argument("--mcq_dir", default="data/mcq_questions.json", type=str)
     args = parser.parse_args()
 
     qas = jsonline_load(args.qa_dir)
@@ -247,6 +227,6 @@ if __name__ == '__main__':
     OUTPUT_DIR = args.output_dir
     predictions = jsonline_load(os.path.join(OUTPUT_DIR, f'{model_name}.jsonl'))
     eval_results = extract_predictions(predictions, model_name, judge_type='chatgpt-1106')
-    accuracy, qAcc, iAcc, dAcc = calculate_overall_accuracy(eval_results)
-    print_out_accuracy(accuracy, qAcc, iAcc, dAcc)
-    evaluate_mcq(os.path.join(OUTPUT_DIR, f'mcq_{model_name}.jsonl'))
+    accuracy, qAcc, iAcc, mAcc = calculate_overall_accuracy(eval_results)
+    print_out_accuracy(accuracy, qAcc, iAcc, mAcc)
+    evaluate_mcq(os.path.join(OUTPUT_DIR, f'mcq_{model_name}.jsonl'), args.mcq_dir)

@@ -2,9 +2,17 @@
 
 This repository contains data and code for the paper [MVP-Bench: Can Large Vision-Language Models Conduct Multi-level Visual Perception Like Humans?](). 
 
-## ECHo Corpus
+## MVP-Bench
 
-Currently, we only release the code to crawl and preprocess the screenplays.
-To get selected frames and associated annotations, please fill out [this form](https://docs.google.com/forms/d/e/1FAIpQLScchFnDYqmCxtwe5GszhCTeM4MPs2HOAYPXeCbSgM5614_kiQ/viewform?vc=0&c=0&w=1&flr=0&usp=mail_form_link).
-Note that you must possess the _CSI: Crime Scene Investigation_ DVDs (seasons 1-8) for us to make the frames available for you.
-You can make the purchase on sites like Amazon and eBay.
+The benchmark is located in the data folder. 'all_question.json' file contains all the visual questions, while `mcq_questions' contain all the multiple-choice questions under Circular Strategy within MVP-Bench.
+
+As for images, the folder 'data/Cross_Images' contains all the images for single-image tasks, while the folder 'data/Single_Images' contains images for cross-image tasks.
+
+## Evaluation
+
+Our Evaluation is based on [the VLMEvalKit](https://github.com/open-compass/VLMEvalKit). The evaluation consists of two steps: Inference and Evaluation.
+
+Here is an example of running inference with command:
+```shell
+python inference.py --model_name GPT4o --img_dir 'data/Images' --output_dir 'model_predictions' --qas_pth 'data/all_questions.json' --question_type 'all_questions'
+```
