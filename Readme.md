@@ -16,3 +16,10 @@ Here is an example of running inference with command:
 ```shell
 python inference.py --model_name GPT4o --img_dir 'data/Images' --output_dir 'model_predictions' --qas_pth 'data/all_questions.json' --question_type 'all_questions'
 ```
+
+Here is an example of running evaluation with command:
+```shell
+python evaluate.py --model_name GPT4o
+```
+
+Our experiment results have been stored in the `model_prediction` folder.
